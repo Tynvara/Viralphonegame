@@ -18,7 +18,7 @@
 html, body {
   margin: 0;
   height: 100%;
-  background: #07020f;
+  background: #07020f radial-gradient(ellipse 120% 80% at 50% 35%, #2b0f55 0%, #12062b 50%, #07020f 100%) fixed;
   color: var(--ink);
   font-family: var(--font);
   overflow: hidden;
@@ -29,22 +29,34 @@ html, body {
   touch-action: none;
 }
 
-/* Phone-shaped playfield; fills the screen on phones, letterboxed on desktop. */
+/* Portrait playfield: fills phones and iPads held upright; on landscape tablets
+   and desktops it sits centred on a matching space backdrop. */
 #app {
+  --ui: 1; /* overlay scale, set from JS so menus grow with tablet screens */
   position: relative;
   height: 100%;
-  width: min(100vw, calc(100vh * 0.62));
+  width: min(100vw, calc(100vh * 0.75));
   margin: 0 auto;
   overflow: hidden;
   background: #12062b;
+  box-shadow: 0 0 80px rgba(255, 95, 162, 0.18), 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 @supports (height: 100dvh) {
-  #app { width: min(100vw, calc(100dvh * 0.62)); }
+  #app { width: min(100vw, calc(100dvh * 0.75)); }
 }
 
 #game { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 
-.layer { position: absolute; inset: 0; pointer-events: none; }
+.layer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: calc(100% / var(--ui));
+  height: calc(100% / var(--ui));
+  transform: scale(var(--ui));
+  transform-origin: 0 0;
+  pointer-events: none;
+}
 .layer button, .layer .panel { pointer-events: auto; }
 /* Screens that are fading out must never catch taps. */
 body:not(.ui-title) #title *,
@@ -385,14 +397,14 @@ body.ui-skins #skins .panel { transform: none; }
   right: 0;
   text-align: center;
   pointer-events: none;
-  font-size: 44px;
+  font-size: calc(44px * var(--ui));
   font-weight: 900;
   letter-spacing: 6px;
   text-shadow: 0 0 30px rgba(255, 255, 255, 0.5);
   opacity: 0;
   transform: scale(0.8);
 }
-.banner small { display: block; font-size: 14px; letter-spacing: 4px; color: var(--muted); }
+.banner small { display: block; font-size: calc(14px * var(--ui)); letter-spacing: 4px; color: var(--muted); }
 .banner.show { animation: banner 2.2s ease-out forwards; }
 @keyframes banner {
   0% { opacity: 0; transform: scale(0.7); }
@@ -405,13 +417,13 @@ body.ui-skins #skins .panel { transform: none; }
 .toast {
   position: absolute;
   left: 50%;
-  bottom: calc(var(--sab) + 28px);
+  bottom: calc(var(--sab) + 28px * var(--ui));
   transform: translate(-50%, 20px);
-  padding: 12px 18px;
+  padding: calc(12px * var(--ui)) calc(18px * var(--ui));
   border-radius: 14px;
   background: rgba(0, 0, 0, 0.8);
   font-weight: 800;
-  font-size: 15px;
+  font-size: calc(15px * var(--ui));
   white-space: nowrap;
   opacity: 0;
   pointer-events: none;

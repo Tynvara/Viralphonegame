@@ -69,6 +69,8 @@
     return '';
   }
   const randomSeed = () => ((Math.random() * 4294967296) >>> 0) || 1;
+  // iPads and iPhones have no web vibration API, so the toggle is hidden there.
+  const canVibrate = !!(native && native.vibrate) || typeof navigator.vibrate === 'function';
 
   // ---------------------------------------------------------------------------
   // State
@@ -93,6 +95,9 @@
     const r = app.getBoundingClientRect();
     renderer.resize(r.width, r.height, window.devicePixelRatio || 1);
     if (game) game.setHeight(renderer.H);
+    // Menus and HUD are laid out for a ~420×700 phone; scale them up on tablets.
+    const ui = Math.max(1, Math.min(1.6, r.width / 420, r.height / 700));
+    app.style.setProperty('--ui', ui.toFixed(3));
   }
 
   function newGame(seed) {
@@ -164,6 +169,7 @@
     $('soundBtn').classList.toggle('off', save.muted);
     $('hapticBtn').innerHTML = ICON_HAPTIC;
     $('hapticBtn').classList.toggle('off', !save.haptics);
+    $('hapticBtn').style.display = canVibrate ? '' : 'none';
   }
 
   function goHome() {
@@ -476,6 +482,15 @@
     }
   });
   document.addEventListener('contextmenu', (e) => e.preventDefault());
+  // Safari (iPad/iPhone) ignores user-scalable=no: block pinch, double-tap zoom and rubber-banding.
+  for (const type of ['gesturestart', 'gesturechange', 'dblclick']) {
+    document.addEventListener(type, (e) => e.preventDefault());
+  }
+  document.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+  // iOS unlocks audio on touchend/click rather than pointerdown.
+  for (const type of ['touchend', 'click']) {
+    document.addEventListener(type, () => Snd.unlock(), { passive: true });
+  }
 
   function bind(id, fn) {
     $(id).addEventListener('click', (e) => {
@@ -562,6 +577,13 @@
   refreshTitle();
   setUI('title');
   requestAnimationFrame(frame);
+
+  // Offline support when installed from a website (e.g. "Add to Home Screen" on iPad).
+  if ('serviceWorker' in navigator && location.protocol === 'https:' && !native) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(() => { /* not available here */ });
+    });
+  }
 
   // Test / debug hook.
   window.__moonsling = {

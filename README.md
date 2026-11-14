@@ -2,7 +2,7 @@
 
 **Tap to sling. Hit the planets.**
 
-Moonsling is a one-tap arcade game for Android, and it also runs in any browser. Your moon orbits a planet. Tap to fling it off along its orbit and get caught by the next planet's gravity. Aim dead-centre for a **PERFECT** and build a streak. Don't wait too long, though: every orbit decays.
+Moonsling is a one-tap arcade game for Android phones, iPads and iPhones, and it also runs in any browser. Your moon orbits a planet. Tap to fling it off along its orbit and get caught by the next planet's gravity. Aim dead-centre for a **PERFECT** and build a streak. Don't wait too long, though: every orbit decays.
 
 <p align="center">
   <img src="store/screenshots/01-title.jpg" width="200" alt="Title screen">
@@ -39,8 +39,27 @@ https://play.google.com/store/apps/details?id=com.viralphonegame.moonsling
 
 ## Play it now
 
+- **On iPad or iPhone:** see [Play on iPad / iPhone](#play-on-ipad--iphone) below.
 - **In a browser:** serve the `web/` folder, e.g. `npx serve web` or `python3 -m http.server -d web`, and open it on your phone or desktop. On desktop, Space or Enter taps.
 - **On Android:** every push builds a debug APK in GitHub Actions (**Actions → Build → artifact `moonsling-debug-apk`**). To build it locally, see below. To install it, copy it to your phone and open it (you'll need to allow "install unknown apps"), or run `adb install -r app-debug.apk`.
+
+## Play on iPad / iPhone
+
+Apple devices can't install Android apps, so on iPad and iPhone Moonsling runs as a web app that you add to the Home Screen. It gets its own icon, opens full screen, works offline after the first launch, and saves progress on the device. The layout fills an iPad held upright, the menus scale up for the bigger screen, and it also works in landscape.
+
+**One-time setup: put the game online with GitHub Pages**
+
+1. GitHub Pages is free for public repositories. For a private repository it needs a paid GitHub plan. On a free plan, make the repository public first: **Settings → General → Danger Zone → Change visibility**.
+2. Go to **Settings → Pages → Build and deployment** and set **Source** to **GitHub Actions**.
+3. The **Deploy web version** workflow publishes `web/` on every push to the default branch. To publish straight away, run it from the **Actions** tab. The site address is `https://<your-username>.github.io/Viralphonegame/`.
+
+**On the iPad**
+
+1. Open the site address in **Safari**.
+2. Tap the **Share** button (the square with an arrow), then **Add to Home Screen**, then **Add**.
+3. Start Moonsling from its icon on the Home Screen.
+
+A version in the App Store is also possible, but it needs a Mac with Xcode and an Apple Developer account ($99 a year).
 
 ## Build the Android app
 
@@ -101,6 +120,7 @@ web/                    the game (HTML5 canvas, no dependencies)
   js/audio.js           synthesized sound effects (WebAudio, no audio files)
   js/share.js           score-card image + share sheet / clipboard fallback
   js/main.js            game loop, input, screens, saves, haptics, Android bridge hooks
+  sw.js                 offline cache for the installed web app (iPad / iPhone / browser)
 app/                    Android wrapper (Kotlin, WebView)
 tools/
   core.test.mjs         unit tests (node --test tools/core.test.mjs)

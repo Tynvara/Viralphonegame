@@ -89,7 +89,8 @@
     }
 
     resize(cssW, cssH, dpr) {
-      const ratio = Math.min(dpr || 1, 2.5);
+      // Cap the backing store at ~4.5 MP so large tablets keep a smooth 60 fps.
+      const ratio = Math.min(dpr || 1, 2.5, Math.sqrt(4.5e6 / Math.max(1, cssW * cssH)));
       this.canvas.width = Math.max(1, Math.round(cssW * ratio));
       this.canvas.height = Math.max(1, Math.round(cssH * ratio));
       this.gradCache.clear();
@@ -585,11 +586,14 @@
         const y = tx.y - age * 40;
         ctx.globalAlpha = Math.min(1, tx.life * 2.5);
         ctx.font = `900 ${Math.round(tx.size * pop)}px ${FONT}`;
+        // Keep popups fully on screen when a planet sits near the edge.
+        const half = ctx.measureText(tx.text).width / 2 + 6;
+        const x = Math.max(half, Math.min(W - half, tx.x));
         ctx.lineWidth = 5;
         ctx.strokeStyle = 'rgba(10,4,30,0.75)';
-        ctx.strokeText(tx.text, tx.x, y);
+        ctx.strokeText(tx.text, x, y);
         ctx.fillStyle = tx.color;
-        ctx.fillText(tx.text, tx.x, y);
+        ctx.fillText(tx.text, x, y);
       }
       ctx.globalAlpha = 1;
     }

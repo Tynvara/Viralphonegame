@@ -26,8 +26,23 @@
       const data = noiseBuf.getChannelData(0);
       for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
     }
-    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+    // iOS reports 'interrupted' after the app was backgrounded.
+    if (ctx.state !== 'running') ctx.resume().catch(() => {});
     return ctx;
+  }
+
+  // iOS Safari only starts audio after a sound is played inside a user gesture.
+  let unlocked = false;
+  function unlock() {
+    const c = ensure();
+    if (!c || unlocked) return;
+    try {
+      const src = c.createBufferSource();
+      src.buffer = c.createBuffer(1, 1, 22050);
+      src.connect(c.destination);
+      src.start(0);
+      unlocked = true;
+    } catch (e) { /* try again on the next gesture */ }
   }
 
   function tone(freq, dur, o) {
@@ -74,14 +89,14 @@
   const note = (step) => 440 * Math.pow(2, step / 12);
 
   window.MoonAudio = {
-    unlock() { ensure(); },
+    unlock,
     isMuted() { return muted; },
     setMuted(v) {
       muted = !!v;
       if (master && ctx) master.gain.setTargetAtTime(muted ? 0 : 0.7, ctx.currentTime, 0.02);
     },
     suspend() { if (ctx && ctx.state === 'running') ctx.suspend().catch(() => {}); },
-    resume() { if (ctx && ctx.state === 'suspended' && !muted) ctx.resume().catch(() => {}); },
+    resume() { if (ctx && ctx.state !== 'running' && !muted) ctx.resume().catch(() => {}); },
 
     launch() {
       tone(300, 0.1, { type: 'triangle', vol: 0.12, slide: 1.9 });
