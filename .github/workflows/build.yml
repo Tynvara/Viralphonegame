@@ -16,7 +16,7 @@ jobs:
           node-version: 22
 
       - name: Game logic tests
-        run: node --test tools/core.test.mjs
+        run: node --test tools/core.test.mjs tools/critter.test.mjs
 
       - uses: actions/setup-java@v4
         with:
@@ -25,11 +25,17 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Build debug APK
+      - name: Build debug APKs
         run: ./gradlew --no-daemon assembleDebug lintDebug
 
-      - name: Upload APK
+      - name: Upload Moonsling APK
         uses: actions/upload-artifact@v4
         with:
           name: moonsling-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Upload Critter Merge APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: critter-merge-debug-apk
+          path: critter-merge/app/build/outputs/apk/debug/crittermerge-debug.apk

@@ -16,3 +16,7 @@ dependencyResolutionManagement {
 
 rootProject.name = "Moonsling"
 include(":app")
+
+// Second game: Critter Merge (web game in critter-merge/web, Android wrapper in critter-merge/app)
+include(":crittermerge")
+project(":crittermerge").projectDir = file("critter-merge/app")

@@ -1,0 +1,14 @@
+{
+  "name": "Critter Merge",
+  "short_name": "Critters",
+  "description": "Drop sea critters into the tank and match two of the same to make a bigger one.",
+  "start_url": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1b8fd8",
+  "theme_color": "#1b8fd8",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

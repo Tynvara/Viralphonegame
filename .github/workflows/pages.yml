@@ -1,5 +1,7 @@
-# Publishes web/ as a website with GitHub Pages, so the game can be played and
-# installed on iPad / iPhone (Safari → Share → Add to Home Screen).
+# Publishes the games as a website with GitHub Pages, so they can be played and
+# installed on iPad / iPhone (Safari → Share → Add to Home Screen):
+#   /                 Moonsling       (web/)
+#   /critter-merge/   Critter Merge   (critter-merge/web/)
 # One-time setup: repo Settings → Pages → Source: "GitHub Actions".
 name: Deploy web version
 
@@ -27,8 +29,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
+      - name: Assemble site
+        run: |
+          mkdir -p _site
+          cp -r web/. _site/
+          cp -r critter-merge/web _site/critter-merge
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: web
+          path: _site
       - id: deployment
         uses: actions/deploy-pages@v4

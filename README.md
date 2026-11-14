@@ -1,3 +1,16 @@
+# Viral Phone Games
+
+This repository holds two games. Each one plays in a browser, installs on iPad and iPhone from the Home Screen, and builds as an Android app.
+
+| Game | Play online | Code |
+| --- | --- | --- |
+| 🌙 **Moonsling**: one-tap arcade game. Sling your moon from planet to planet. | https://tynvara.github.io/Viralphonegame/ | `web/`, `app/` |
+| 🐠 **Critter Merge**: drop-and-merge puzzle for kids. Match sea critters to grow a Blue Whale. | https://tynvara.github.io/Viralphonegame/critter-merge/ | `critter-merge/` |
+
+To put either game on an iPad: open its link in **Safari**, tap **Share**, then **Add to Home Screen**.
+
+---
+
 # Moonsling 🌙
 
 **Tap to sling. Hit the planets.**
@@ -103,6 +116,28 @@ Because there's one codebase, a change to the game shows up in both the APK and 
 6. **Data safety:** the game collects and shares no data and has no internet permission. **Content rating:** no violence or user-generated content.
 
 Every update needs `versionCode` and `versionName` bumped in `app/build.gradle.kts`.
+
+## Critter Merge 🐠
+
+A calm drop-and-merge puzzle made for an 8-year-old. Slide a finger to aim and let go to drop a sea critter into the tank. Two of the same that touch merge into the next critter up:
+
+Shrimp → Clownfish → Crab → Starfish → Pufferfish → Jellyfish → Sea Turtle → Octopus → Narwhal → Blue Whale
+
+Two Blue Whales make a **Whale Party**.
+
+- **Forgiving rules:** the first time the tank overflows, a **Bubble Rescue** floats the top critters away so the game goes on. There are also **3 Shakes** per game to jiggle stuck critters.
+- **Sea Album:** each new critter she discovers pops up with a real fun fact, such as "An octopus has three hearts and blue blood!". The album keeps track of everything found.
+- **Kid-friendly design:** big buttons, short words, a gentle generated soundtrack (music and sound can be switched off separately), and no ads, accounts or internet needed after the first load.
+- Everything is drawn in code, including all 10 critters. The only asset is the bundled [Baloo 2](critter-merge/web/fonts/OFL.txt) font (SIL Open Font License).
+
+Code: [`critter-merge/web/js/core.js`](critter-merge/web/js/core.js) holds the rules and physics, [`art.js`](critter-merge/web/js/art.js) the critters, [`render.js`](critter-merge/web/js/render.js) the drawing, and [`main.js`](critter-merge/web/js/main.js) the screens. The Android wrapper is in `critter-merge/app` and builds with `./gradlew :crittermerge:assembleDebug`.
+
+Checks:
+
+- `node --test tools/critter.test.mjs`: merging, chain reactions, Whale Party, rescue and game over, shakes, physics stability.
+- `node tools/critter-sim.mjs`: plays many games with bots to check the physics never misbehaves.
+- `node tools/critter-screens.mjs out 1 820 1180`: headless smoke test with screenshots at iPad size.
+- `node tools/critter-icons.mjs`: regenerates the icons from the critter art.
 
 ## Ideas to grow it
 

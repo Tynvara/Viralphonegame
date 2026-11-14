@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#1b8fd8">
+  <meta name="description" content="Critter Merge — drop sea critters into the tank and match two of the same to make a bigger one. Can you make a Blue Whale?">
+  <title>Critter Merge</title>
+  <link rel="icon" href="icon-192.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <!-- iPad / iPhone: "Add to Home Screen" installs it as a full-screen app -->
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Critter Merge">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="ui-title">
+  <div id="app">
+    <canvas id="game" aria-label="Critter Merge tank"></canvas>
+
+    <!-- In-game HUD -->
+    <div id="hud" class="layer">
+      <div class="hud-top">
+        <div class="hud-left">
+          <button id="pauseBtn" class="round-btn" aria-label="Pause">
+            <svg viewBox="0 0 24 24"><rect x="6" y="5" width="4.5" height="14" rx="2"/><rect x="13.5" y="5" width="4.5" height="14" rx="2"/></svg>
+          </button>
+          <button id="shakeBtn" class="round-btn shake" aria-label="Shake the tank">
+            <svg viewBox="0 0 24 24"><path d="M4 8c2-2 3 2 5 0s3 2 5 0 3 2 5 0M4 13c2-2 3 2 5 0s3 2 5 0 3 2 5 0" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M8 18h8" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+            <span id="shakeCount" class="badge">3</span>
+          </button>
+        </div>
+        <div class="score-box">
+          <div id="score">0</div>
+          <div id="bestSmall" class="best-small"></div>
+        </div>
+        <div class="next-box">
+          <span>NEXT</span>
+          <img id="nextImg" alt="Next critter">
+        </div>
+      </div>
+      <div id="hint" class="hint"></div>
+    </div>
+
+    <!-- The critter chain under the tank -->
+    <div id="chain" class="layer">
+      <div id="chainRow" class="chain-row"></div>
+    </div>
+
+    <!-- Title -->
+    <div id="title" class="layer screen" data-screen="title">
+      <div class="top-row">
+        <button id="soundBtn" class="round-btn small" aria-label="Sound on or off"></button>
+        <button id="musicBtn" class="round-btn small" aria-label="Music on or off"></button>
+        <button id="hapticBtn" class="round-btn small" aria-label="Vibration on or off"></button>
+      </div>
+      <h1 class="logo"><span class="l1">Critter</span><span class="l2">Merge</span></h1>
+      <p class="tag">Drop. Match. Merge!</p>
+      <p id="titleBest" class="title-best"></p>
+      <div class="grow"></div>
+      <div class="title-buttons">
+        <button id="playBtn" class="btn primary big">PLAY</button>
+        <button id="albumBtn" class="btn secondary">
+          <span>📖 Sea Album</span><small id="albumCount"></small>
+        </button>
+      </div>
+    </div>
+
+    <!-- Pause -->
+    <div id="pause" class="layer screen modal" data-screen="paused">
+      <div class="panel">
+        <h2>Paused</h2>
+        <button id="resumeBtn" class="btn primary">Keep playing</button>
+        <button id="restartBtn" class="btn secondary">Start over</button>
+        <button id="pauseHomeBtn" class="btn ghost">Home</button>
+      </div>
+    </div>
+
+    <!-- Game over -->
+    <div id="over" class="layer screen modal" data-screen="over">
+      <div class="panel">
+        <h2 class="over-title">Tank full!</h2>
+        <div class="over-score-label">Your score</div>
+        <div id="overScore" class="big-score">0</div>
+        <div id="overBadge" class="badge-best">⭐ NEW BEST! ⭐</div>
+        <div id="overBest" class="over-best"></div>
+        <div class="biggest">
+          <img id="overBiggestImg" alt="">
+          <div><small>Biggest critter</small><b id="overBiggestName"></b></div>
+        </div>
+        <button id="againBtn" class="btn primary big">Play again</button>
+        <button id="overHomeBtn" class="btn ghost">Home</button>
+      </div>
+    </div>
+
+    <!-- Sea Album -->
+    <div id="album" class="layer screen modal" data-screen="album">
+      <div class="panel wide">
+        <div class="panel-head">
+          <h2>Sea Album</h2>
+          <span id="albumProgress" class="pill"></span>
+        </div>
+        <div id="albumGrid" class="album-grid"></div>
+        <button id="albumClose" class="btn ghost">Back</button>
+      </div>
+    </div>
+
+    <!-- New critter discovered -->
+    <div id="discover" class="layer screen modal" data-screen="discover">
+      <div class="panel discover">
+        <div class="eyebrow">✨ New critter! ✨</div>
+        <img id="discImg" alt="">
+        <h2 id="discName"></h2>
+        <p id="discFact" class="fact"></p>
+        <button id="discOk" class="btn primary">Yay!</button>
+      </div>
+    </div>
+
+    <div id="banner" class="banner"></div>
+    <div id="toast" class="toast"></div>
+  </div>
+
+  <script src="js/core.js"></script>
+  <script src="js/art.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
