@@ -5,6 +5,11 @@
  * next kind up. Two whales make a Whale Party. If the tank stays over-full the
  * game ends (the first time, a Bubble Rescue clears the top instead).
  *
+ * A game can also carry a level: a goal (make a critter, pop every trapped
+ * bubble, reach a score, or score as much as possible), a drop limit, an
+ * optional fixed drop order and critters trapped in bubbles. Trapped critters
+ * stay put until a matching critter touches them, which pops them free.
+ *
  * Physics: circles with Verlet integration and iterative position solving at
  * a fixed 120 Hz step. Water drag keeps everything calm and stable.
  *
@@ -34,6 +39,7 @@
   const GRACE = 1.1;            // fresh critters are ignored by the overflow check
   const DEEP = 3;               // overlap depth beyond which pushes don't add speed
   const MERGE_GAP = 1.0;        // same critters this close count as touching
+  const SETTLE_TIME = 2.2;      // after the last drop, wait this long before judging a level
 
   /** The critter ladder. `r` is the physics radius. */
   const CRITTERS = [
@@ -53,8 +59,13 @@
   const DROP_WEIGHTS = [32, 28, 20, 12, 8]; // only the five smallest are dropped
 
   class Game {
+    /**
+     * @param {{seed?: number, level?: {goal?: object, drops?: number, queue?: number[], tiers?: number,
+     *          bubbles?: number[][], start?: number[][], par?: number[], rescues?: number}}} opts
+     */
     constructor(opts) {
       opts = opts || {};
+      const lv = opts.level || null;
       this.seed = (opts.seed >>> 0) || 1;
       this.rs = this.seed;
       this.t = 0;
@@ -72,12 +83,49 @@
       this.cooldown = 0;
       this.aimX = TW / 2;
       this.shakes = 3;
-      this.rescues = 1;
+      this.rescues = lv && lv.rescues !== undefined ? lv.rescues : 1;
       this.overT = 0;
       this.danger = false;
       this.parties = 0;
-      this.cur = this.roll();
-      this.next = this.roll();
+      // level / goal state
+      this.goal = lv && lv.goal ? lv.goal : null;
+      this.dropLimit = lv && lv.drops ? lv.drops : 0;
+      this.queue = lv && lv.queue ? lv.queue.slice() : null;
+      this.qi = 0;
+      this.maxTier = lv && lv.tiers !== undefined ? lv.tiers : DROP_WEIGHTS.length - 1;
+      this.par = lv && lv.par ? lv.par.slice() : null;
+      this.made = CRITTERS.map(() => 0);
+      this.popped = 0;
+      this.bubbleCount = 0;
+      this.stars = 0;
+      this.endReason = null;
+      this.lastDropT = -10;
+      for (const [tier, x, y] of (lv && lv.start) || []) this._spawn(tier, x, y, 0, false); // free critters already in the tank
+      for (const [tier, x, y] of (lv && lv.bubbles) || []) {
+        this._spawn(tier, x, y, 0, false).fixed = true;
+        this.bubbleCount++;
+      }
+      this.cur = this.take();
+      this.next = this.take();
+    }
+
+    /** Next critter for the player: the level's fixed order first, then random. */
+    take() {
+      if (this.queue && this.qi < this.queue.length) return this.queue[this.qi++];
+      return this.roll();
+    }
+
+    /** Drops still allowed (Infinity when the level has no limit). */
+    dropsLeft() { return this.dropLimit ? Math.max(0, this.dropLimit - this.drops) : Infinity; }
+
+    /** Progress toward the goal as {have, need}. */
+    progress() {
+      const g = this.goal;
+      if (!g) return null;
+      if (g.type === 'make') return { have: Math.min(this.made[g.tier], g.count), need: g.count };
+      if (g.type === 'free') return { have: this.popped, need: this.bubbleCount };
+      if (g.type === 'score') return { have: Math.min(this.score, g.points), need: g.points };
+      return { have: this.score, need: g.stars ? g.stars[2] : 0 }; // dive
     }
 
     // --- RNG (mulberry32, state kept as a number so games can be cloned) ---
@@ -90,7 +138,7 @@
 
     /** Next critter to drop. The first few drops stay small so it's easy to start. */
     roll() {
-      const maxTier = this.drops < 4 ? 2 : DROP_WEIGHTS.length - 1;
+      const maxTier = Math.min(this.maxTier, this.drops < 4 ? 2 : DROP_WEIGHTS.length - 1);
       let total = 0;
       for (let i = 0; i <= maxTier; i++) total += DROP_WEIGHTS[i];
       let x = this.rand() * total;
@@ -113,7 +161,7 @@
       return Math.max(r, Math.min(TW - r, x));
     }
     setAim(x) { this.aimX = this.clampAim(x); }
-    canDrop() { return this.state === 'play' && this.cooldown <= 0; }
+    canDrop() { return this.state === 'play' && this.cooldown <= 0 && this.dropsLeft() > 0; }
 
     drop() {
       if (!this.canDrop()) return false;
@@ -121,8 +169,9 @@
       this._spawn(this.cur, x, DROP_Y, 0, false);
       this._emit({ type: 'drop', tier: this.cur, x, y: DROP_Y });
       this.drops++;
+      this.lastDropT = this.t;
       this.cur = this.next;
-      this.next = this.roll();
+      this.next = this.take();
       this.cooldown = DROP_COOLDOWN;
       return true;
     }
@@ -132,6 +181,7 @@
       if (this.state !== 'play' || this.shakes <= 0 || !this.bodies.length) return false;
       this.shakes--;
       for (const b of this.bodies) {
+        if (b.fixed) continue;
         const k = 1.3 * (30 / (b.R + 15)); // small critters jump more than big ones
         b.px = b.x - (this.rand() * 2 - 1) * k;
         b.py = b.y + (1 + this.rand() * 1.5) * k; // upward kick
@@ -150,7 +200,43 @@
         this._step(STEP);
       }
       if (this.cooldown > 0) this.cooldown = Math.max(0, this.cooldown - dt);
+      if (this.state === 'play') this._checkGoal();
       if (this.state === 'play') this._checkOverflow(dt);
+    }
+
+    _checkGoal() {
+      const g = this.goal;
+      if (!g) return;
+      const p = this.progress();
+      if (g.type !== 'dive' && p.have >= p.need) { this._win(); return; }
+      // Out of drops: wait until the tank has calmed down, then judge.
+      if (this.dropLimit && this.drops >= this.dropLimit) {
+        const quiet = this.t - Math.max(this.lastDropT, this.lastMergeT);
+        if (quiet > SETTLE_TIME) {
+          if (g.type === 'dive') this._win();
+          else this._end('drops');
+        }
+      }
+    }
+
+    _win() {
+      const g = this.goal;
+      if (g.type === 'dive') {
+        const s = g.stars || [0, 0, 0];
+        this.stars = this.score >= s[2] ? 3 : this.score >= s[1] ? 2 : 1;
+      } else {
+        const limit = this.dropLimit || 99;
+        const par = this.par || [Math.ceil(limit * 0.55), Math.ceil(limit * 0.8)];
+        this.stars = this.drops <= par[0] ? 3 : this.drops <= par[1] ? 2 : 1;
+      }
+      this.state = 'won';
+      this._emit({ type: 'won', stars: this.stars });
+    }
+
+    _end(reason) {
+      this.state = 'over';
+      this.endReason = reason;
+      this._emit({ type: 'over', reason });
     }
 
     _spawn(tier, x, y, startR, merged) {
@@ -168,6 +254,7 @@
       const bodies = this.bodies;
       const g = GRAVITY * h * h;
       for (const b of bodies) {
+        if (b.fixed) continue;
         let vx = (b.x - b.px) * DRAG;
         let vy = (b.y - b.py) * DRAG;
         const sp = Math.hypot(vx, vy);
@@ -192,6 +279,7 @@
             if (dx > reach || dx < -reach || dy > reach || dy < -reach) continue;
             const d2 = dx * dx + dy * dy;
             // Same critters merge as soon as they touch (resting side by side counts).
+            if (a.fixed && b.fixed) continue;
             if (it === 0 && a.tier === b.tier && !a.dead && !b.dead && d2 < reach * reach) {
               a.dead = b.dead = true; // reserve this pair; resolved after the solve
               merges.push([a, b]);
@@ -202,8 +290,15 @@
             if (a.dead && b.dead && a.tier === b.tier) continue;
             const depth = rr - d;
             const ma = a.R * a.R, mb = b.R * b.R;
-            const ka = mb / (ma + mb), kb = ma / (ma + mb);
-            const nx = dx / d, ny = dy / d;
+            // Trapped critters don't move: the free one takes the whole push.
+            const ka = a.fixed ? 0 : b.fixed ? 1 : mb / (ma + mb);
+            const kb = b.fixed ? 0 : a.fixed ? 1 : ma / (ma + mb);
+            let nx = dx / d, ny = dy / d;
+            // Nothing balances perfectly on top of a trapped bubble: nudge it so it rolls off.
+            if ((a.fixed || b.fixed) && Math.abs(nx) < 0.03) {
+              nx += (a.fixed ? b : a).wob > 3.14 ? 0.03 : -0.03;
+              const k = Math.hypot(nx, ny); nx /= k; ny /= k;
+            }
             const ax = nx * depth * ka, ay = ny * depth * ka;
             const bx = nx * depth * kb, by = ny * depth * kb;
             a.x -= ax; a.y -= ay;
@@ -217,7 +312,7 @@
             }
           }
         }
-        for (const b of bodies) this._walls(b);
+        for (const b of bodies) if (!b.fixed) this._walls(b);
       }
       if (merges.length) this._merge(merges);
     }
@@ -251,6 +346,11 @@
         this.combo = this.t - this.lastMergeT < 1.0 ? this.combo + 1 : 1;
         this.lastMergeT = this.t;
         this.merges++;
+        const freed = (a.fixed ? 1 : 0) + (b.fixed ? 1 : 0);
+        if (freed) {
+          this.popped += freed;
+          this._emit({ type: 'pop', tier, x, y });
+        }
         const mult = 1 + (Math.min(this.combo, 5) - 1) * 0.5;
         if (tier === LAST) {
           const pts = Math.round(WHALE_PARTY_POINTS * mult);
@@ -266,6 +366,7 @@
         this._walls(nb);
         const pts = Math.round(CRITTERS[nt].points * mult);
         this.score += pts;
+        this.made[nt]++;
         if (nt > this.biggest) this.biggest = nt;
         this._emit({ type: 'merge', tier: nt, x, y, points: pts, combo: this.combo });
       }
@@ -275,7 +376,7 @@
     _checkOverflow(dt) {
       let over = false, warn = false;
       for (const b of this.bodies) {
-        if (this.t - b.born < GRACE) continue;
+        if (b.fixed || this.t - b.born < GRACE) continue;
         const top = b.y - b.r;
         if (top < 0) over = true;
         if (top < WARN_Y) warn = true;
@@ -285,18 +386,15 @@
       if (this.overT < OVER_TIME) return;
       this.overT = 0;
       if (this.rescues > 0) this._rescue();
-      else {
-        this.state = 'over';
-        this._emit({ type: 'over' });
-      }
+      else this._end('full');
     }
 
     /** Bubbles carry away every critter in the top part of the tank. */
     _rescue() {
       this.rescues--;
       const cut = TH * 0.4;
-      const saved = this.bodies.filter((b) => b.y - b.r < cut);
-      this.bodies = this.bodies.filter((b) => b.y - b.r >= cut);
+      const saved = this.bodies.filter((b) => !b.fixed && b.y - b.r < cut);
+      this.bodies = this.bodies.filter((b) => b.fixed || b.y - b.r >= cut);
       this._emit({ type: 'rescue', critters: saved.map((b) => ({ tier: b.tier, x: b.x, y: b.y })) });
     }
 
@@ -317,9 +415,12 @@
     }
 
     result() {
-      return { score: this.score, biggest: this.biggest, drops: this.drops, merges: this.merges, parties: this.parties };
+      return {
+        score: this.score, biggest: this.biggest, drops: this.drops, merges: this.merges, parties: this.parties,
+        stars: this.stars, popped: this.popped, won: this.state === 'won', reason: this.endReason,
+      };
     }
   }
 
-  return { TW, TH, DROP_Y, WARN_Y, OVER_TIME, CRITTERS, LAST, Game };
+  return { TW, TH, DROP_Y, WARN_Y, OVER_TIME, CRITTERS, LAST, DROP_COOLDOWN, Game };
 }));

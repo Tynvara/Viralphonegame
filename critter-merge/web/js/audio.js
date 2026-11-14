@@ -146,5 +146,13 @@
     over() { [9, 7, 5, 2].forEach((n, i) => tone(note(n), 0.45, { type: 'triangle', vol: 0.14, delay: i * 0.18 })); },
     best() { [5, 7, 9, 12, 14].forEach((n, i) => tone(note(n), 0.3, { type: 'triangle', vol: 0.15, delay: i * 0.08 })); },
     click() { tone(880, 0.05, { type: 'sine', vol: 0.08 }); },
+    pop() {
+      noise(0.12, { filter: 'highpass', freq: 1800, vol: 0.25 });
+      tone(500, 0.12, { type: 'sine', vol: 0.2, slide: 2.4 });
+      tone(note(12), 0.3, { type: 'triangle', vol: 0.12, delay: 0.06 });
+    },
+    star(i) { tone(note(7 + i * 2), 0.35, { type: 'triangle', vol: 0.18 }); tone(note(12 + i * 2), 0.3, { type: 'sine', vol: 0.08, delay: 0.04 }); },
+    win() { [0, 4, 7, 12].forEach((n, i) => tone(note(n + 5), 0.4, { type: 'triangle', vol: 0.15, delay: i * 0.1 })); },
+    lose() { [7, 5, 4].forEach((n, i) => tone(note(n), 0.4, { type: 'triangle', vol: 0.12, delay: i * 0.16 })); },
   };
 })();

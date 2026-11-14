@@ -11,6 +11,7 @@
   const FONT = '"Baloo 2", "Arial Rounded MT Bold", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
   const WALL = 9;           // glass thickness (world units)
   const TOP_ROOM = 104;     // space above the rim for the held critter
+  const DEFAULT_SKY = ['#4fd2f5', '#1b8fd8', '#0c4a9a'];
 
   class Renderer {
     constructor(canvas) {
@@ -29,6 +30,15 @@
       this.cssW = 1;
       this.cssH = 1;
       this.dpr = 1;
+      this.sky = DEFAULT_SKY;
+    }
+
+    /** Ocean colours (top, middle, bottom) — each Adventure world has its own. */
+    setTheme(sky) {
+      const next = sky || DEFAULT_SKY;
+      if (next.join() === this.sky.join()) return;
+      this.sky = next;
+      if (this.backdrop) this._buildBackdrop();
     }
 
     /** Fit the tank between the HUD (top) and the critter chain (bottom). */
@@ -76,9 +86,9 @@
       c.height = h;
       const ctx = c.getContext('2d');
       const g = ctx.createLinearGradient(0, 0, 0, h);
-      g.addColorStop(0, '#4fd2f5');
-      g.addColorStop(0.45, '#1b8fd8');
-      g.addColorStop(1, '#0c4a9a');
+      g.addColorStop(0, this.sky[0]);
+      g.addColorStop(0.45, this.sky[1]);
+      g.addColorStop(1, this.sky[2]);
       ctx.fillStyle = g;
       ctx.fillRect(0, 0, w, h);
       // sand
@@ -254,7 +264,7 @@
       }
 
       // aim guide + held critter
-      if (opts.showHeld && g.state === 'play') {
+      if (opts.showHeld && g.state === 'play' && g.dropsLeft() > 0) {
         const tier = g.cur;
         const x = g.clampAim(g.aimX);
         const ready = g.canDrop();
@@ -276,6 +286,7 @@
 
       // critters
       for (const b of g.bodies) {
+        if (b.fixed) { this._drawTrapped(b); continue; }
         const vx = b.x - b.px;
         const prev = this.tilt.get(b.id) || 0;
         const tilt = prev + (Math.max(-0.4, Math.min(0.4, vx * 0.18)) - prev) * 0.15;
@@ -303,6 +314,32 @@
       ctx.beginPath();
       ctx.moveTo(10, 30);
       ctx.lineTo(10, TH * 0.45);
+      ctx.stroke();
+    }
+
+    /** A critter trapped in a bubble: bobbing gently, waiting for a match. */
+    _drawTrapped(b) {
+      const ctx = this.ctx, t = this.time;
+      const y = b.y + Math.sin(t * 2 + b.wob) * 1.5;
+      const blink = (t + b.wob * 2.1) % 4.6 < 0.13;
+      this.sprites.draw(ctx, b.tier, b.x, y, b.r * 0.86, Math.sin(t * 1.3 + b.wob) * 0.08, blink);
+      const R = b.r * 1.08;
+      const g = ctx.createRadialGradient(b.x - R * 0.3, y - R * 0.35, R * 0.1, b.x, y, R);
+      g.addColorStop(0, 'rgba(255,255,255,0.35)');
+      g.addColorStop(0.7, 'rgba(190,235,255,0.12)');
+      g.addColorStop(1, 'rgba(170,225,255,0.35)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(b.x, y, R, 0, TAU);
+      ctx.fill();
+      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+      ctx.stroke();
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+      ctx.beginPath();
+      ctx.arc(b.x, y, R * 0.78, -2.6, -1.9);
       ctx.stroke();
     }
 

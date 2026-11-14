@@ -2,12 +2,13 @@
  * Critter Merge service worker: caches the game so the home-screen app works offline.
  * Stale-while-revalidate: launches instantly from cache, picks up updates next launch.
  */
-const CACHE = 'crittermerge-v1';
+const CACHE = 'crittermerge-v2';
 const ASSETS = [
   './',
   'index.html',
   'style.css',
   'js/core.js',
+  'js/levels.js',
   'js/render.js',
   'js/audio.js',
   'js/art.js',

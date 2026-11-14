@@ -35,6 +35,10 @@
         <div class="score-box">
           <div id="score">0</div>
           <div id="bestSmall" class="best-small"></div>
+          <div id="goalBox" class="goal-box">
+            <img id="goalImg" alt=""><span id="goalIcon" class="goal-icon"></span><b id="goalText"></b>
+          </div>
+          <div id="dropsLeft" class="drops-left"></div>
         </div>
         <div class="next-box">
           <span>NEXT</span>
@@ -61,10 +65,17 @@
       <p id="titleBest" class="title-best"></p>
       <div class="grow"></div>
       <div class="title-buttons">
-        <button id="playBtn" class="btn primary big">PLAY</button>
-        <button id="albumBtn" class="btn secondary">
-          <span>📖 Sea Album</span><small id="albumCount"></small>
+        <button id="adventureBtn" class="btn primary big">
+          <span>🗺️ Adventure</span><small id="adventureStars"></small>
         </button>
+        <button id="dailyBtn" class="btn secondary daily">
+          <span class="lbl"><span>📅 Daily Challenge</span><small id="dailySub"></small></span>
+          <span id="dailyBadge" class="new-badge">NEW</span>
+        </button>
+        <div class="btn-row">
+          <button id="playBtn" class="btn sea">♾️ Free Play</button>
+          <button id="albumBtn" class="btn sea"><span>📖 Album</span><small id="albumCount"></small></button>
+        </div>
       </div>
     </div>
 
@@ -92,6 +103,47 @@
         </div>
         <button id="againBtn" class="btn primary big">Play again</button>
         <button id="overHomeBtn" class="btn ghost">Home</button>
+      </div>
+    </div>
+
+    <!-- Adventure map -->
+    <div id="levels" class="layer screen modal" data-screen="levels">
+      <div class="panel wide">
+        <div class="panel-head">
+          <h2>Adventure</h2>
+          <span id="levelsStars" class="pill"></span>
+        </div>
+        <div id="levelsList" class="levels-list"></div>
+        <button id="levelsClose" class="btn ghost">Back</button>
+      </div>
+    </div>
+
+    <!-- Level / daily start card -->
+    <div id="intro" class="layer screen modal" data-screen="intro">
+      <div class="panel">
+        <div id="introEyebrow" class="eyebrow"></div>
+        <div class="intro-goal">
+          <img id="introImg" alt="">
+          <h2 id="introGoal"></h2>
+        </div>
+        <p id="introHelp" class="fact"></p>
+        <div id="introDrops" class="pill center"></div>
+        <button id="introStart" class="btn primary big">Start!</button>
+        <button id="introBack" class="btn ghost">Back</button>
+      </div>
+    </div>
+
+    <!-- Level / daily result -->
+    <div id="result" class="layer screen modal" data-screen="result">
+      <div class="panel">
+        <div id="resultEyebrow" class="eyebrow"></div>
+        <h2 id="resultTitle"></h2>
+        <div id="resultStars" class="stars-row"><span>★</span><span>★</span><span>★</span></div>
+        <p id="resultMsg" class="fact"></p>
+        <div id="resultShell" class="shell-box"></div>
+        <button id="resultPrimary" class="btn primary big"></button>
+        <button id="resultAgain" class="btn secondary">Play again</button>
+        <button id="resultBack" class="btn ghost"></button>
       </div>
     </div>
 
@@ -123,6 +175,7 @@
   </div>
 
   <script src="js/core.js"></script>
+  <script src="js/levels.js"></script>
   <script src="js/art.js"></script>
   <script src="js/render.js"></script>
   <script src="js/audio.js"></script>

@@ -160,3 +160,111 @@ test('landingY finds the top of the stack', () => {
   g._spawn(5, 180, C.TH - 50);
   assert.ok(Math.abs(g.landingY(180, 0) - (C.TH - 100 - 15)) < 0.01);
 });
+
+// --- Adventure levels & Daily Challenge --------------------------------------
+const L = require('../critter-merge/web/js/levels.js');
+const { playHeuristic, solvePuzzle } = await import('./critter-bots.mjs');
+
+test('trapped critters stay put until a match pops them', () => {
+  const g = new C.Game({ seed: 1, level: { goal: { type: 'free' }, bubbles: [[2, 180, 300]], queue: [1, 2], drops: 5 } });
+  const bubble = g.bodies[0];
+  assert.equal(bubble.fixed, true);
+  g.setAim(180);
+  g.drop(); // a clownfish lands on the crab bubble: no match, it rolls off
+  run(g, 2);
+  assert.equal(bubble.x, 180);
+  assert.equal(bubble.y, 300);
+  assert.equal(g.popped, 0);
+  g.setAim(180);
+  g.drop(); // a crab: pop!
+  run(g, 2);
+  assert.equal(g.popped, 1);
+  assert.equal(g.state, 'won');
+  assert.ok(g.events.some((e) => e.type === 'pop'));
+  assert.ok(g.bodies.every((b) => !b.fixed));
+});
+
+test('levels follow their drop order, then end when drops run out', () => {
+  const g = new C.Game({ seed: 1, level: { goal: { type: 'make', tier: 9, count: 1 }, queue: [3, 1, 4], drops: 3 } });
+  const seen = [];
+  for (let i = 0; i < 3; i++) { seen.push(g.cur); g.setAim(40 + i * 140); g.cooldown = 0; g.drop(); }
+  assert.deepEqual(seen, [3, 1, 4]);
+  assert.equal(g.dropsLeft(), 0);
+  assert.equal(g.drop(), false);
+  run(g, 5);
+  assert.equal(g.state, 'over');
+  assert.equal(g.result().reason, 'drops');
+});
+
+test('a dive ends after the last drop and always awards at least one star', () => {
+  const g = new C.Game({ seed: 4, level: { goal: { type: 'dive', stars: [0, 99999, 99999] }, drops: 2 } });
+  g.drop();
+  run(g, 0.6);
+  g.drop();
+  run(g, 5);
+  assert.equal(g.state, 'won');
+  assert.equal(g.stars, 1);
+});
+
+test('stars depend on how many drops it took', () => {
+  const lv = { goal: { type: 'free' }, bubbles: [[0, 180, C.TH - 15]], queue: [1, 1, 0], drops: 3, par: [1, 2] };
+  const g = new C.Game({ seed: 1, level: lv });
+  for (const x of [40, 320, 180]) { g.setAim(x); g.cooldown = 0; g.drop(); run(g, 1.5); }
+  assert.equal(g.state, 'won');
+  assert.equal(g.stars, 1, 'three drops for a par-1 puzzle is one star');
+});
+
+test('there are 32 levels in 4 worlds, with sensible goals', () => {
+  assert.equal(L.LEVELS.length, 32);
+  assert.equal(L.WORLDS.length, 4);
+  L.LEVELS.forEach((lv, i) => {
+    assert.equal(lv.id, i + 1);
+    assert.equal(lv.world, Math.floor(i / 8));
+    assert.ok(lv.drops > 0, 'every level has a drop limit');
+    assert.ok(L.goalText(lv).length > 5);
+    if (lv.goal.type === 'free') {
+      assert.ok(lv.bubbles.length >= 1);
+      assert.ok(lv.queue.length <= lv.drops);
+      for (const [t, x, y] of lv.bubbles) {
+        const r = C.CRITTERS[t].r;
+        assert.ok(x >= r && x <= C.TW - r && y <= C.TH - r && y - r > 0, `bubble inside the tank (level ${lv.id})`);
+      }
+    }
+  });
+  assert.equal(L.goalText(L.LEVELS[20]), 'Make an Octopus');
+  assert.equal(L.goalText(L.LEVELS[12]), 'Make 3 Starfish');
+});
+
+test('every bubble puzzle can be solved within its drop limit', () => {
+  for (const lv of L.LEVELS.filter((l) => l.goal.type === 'free')) {
+    const r = solvePuzzle(lv, 7);
+    assert.ok(r.won, `level ${lv.id} should be solvable`);
+    assert.ok(r.drops <= lv.drops);
+  }
+});
+
+test('every make/score level is reachable by a bot well within its limit', () => {
+  for (const lv of L.LEVELS.filter((l) => l.goal.type === 'make' || l.goal.type === 'score')) {
+    if (lv.drops > 300) continue; // the long late-game levels are covered by tools/critter-levels.mjs
+    let wins = 0;
+    for (let i = 0; i < 3; i++) {
+      const r = playHeuristic(lv, lv.id * 100 + i);
+      if (r.won) wins++;
+    }
+    assert.ok(wins >= 2, `level ${lv.id}: bot won ${wins}/3`);
+  }
+});
+
+test('daily challenge: same for everyone each day, rotates, puzzles are solvable', () => {
+  const a = L.dailyLevel(new Date(2026, 10, 20, 8));
+  const b = L.dailyLevel(new Date(2026, 10, 20, 21));
+  assert.deepEqual(a, b);
+  assert.equal(L.dailyNumber(new Date(2026, 10, 14)), 1);
+  const kinds = new Set();
+  for (let i = 0; i < 12; i++) {
+    const lv = L.dailyLevel(new Date(2026, 10, 14 + i));
+    kinds.add(lv.goal.type);
+    if (lv.goal.type === 'free') assert.ok(solvePuzzle(lv, lv.seed).won, `daily ${lv.key} solvable`);
+  }
+  assert.deepEqual([...kinds].sort(), ['dive', 'free', 'make']);
+});

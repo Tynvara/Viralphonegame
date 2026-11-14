@@ -112,7 +112,7 @@ await page.evaluate(() => {
   };
   fill();
 });
-await page.waitForFunction(() => window.__critter.game.rescues === 0, null, { timeout: 60000 });
+await page.waitForFunction(() => window.__critter.game.rescues === 0, null, { timeout: 120000 });
 await wait(500);
 await shot('06-bubble-rescue');
 await page.waitForFunction(() => window.__critter.ui === 'over', null, { timeout: 90000 });
@@ -124,6 +124,54 @@ await wait(400);
 await page.click('#albumBtn');
 await wait(500);
 await shot('08-album');
+
+// ---- Adventure ----
+await page.click('#albumClose');
+await wait(300);
+await page.evaluate(() => { const s = window.__critter.save; for (let i = 0; i < 6; i++) s.levels[i] = [3, 2, 3, 1, 2, 3][i]; });
+await page.click('#adventureBtn');
+await wait(600);
+await shot('09-adventure-map');
+
+// Level 7: a hand-made bubble puzzle.
+await page.evaluate(() => window.__critter.showIntro(window.__critter.Levels.LEVELS[6]));
+await wait(500);
+await shot('10-level-intro');
+await page.click('#introStart');
+await wait(800);
+await shot('11-bubble-puzzle');
+const dropAt = async (x) => {
+  await page.waitForFunction(() => window.__critter.game.canDrop(), null, { timeout: 10000 });
+  await page.evaluate((x) => { const g = window.__critter.game; g.setAim(x); g.drop(); }, x);
+  await wait(1300);
+};
+await dropAt(180); // crab onto the trapped crab
+await shot('12-bubble-popped');
+await dropAt(70);  // clownfish onto the trapped clownfish
+await dropAt(290); // shrimp onto the trapped shrimp
+await page.waitForFunction(() => window.__critter.ui === 'result', null, { timeout: 10000 });
+await wait(1500);
+await shot('13-level-complete');
+console.log('level 7 result', await page.evaluate(() => ({ stars: window.__critter.save.levels[6], ui: window.__critter.ui })));
+
+// A failed level: drop everything away from the bubble.
+await page.evaluate(() => window.__critter.startGame('level', window.__critter.Levels.LEVELS[1]));
+await wait(400);
+for (let i = 0; i < 3; i++) await dropAt(330);
+await page.waitForFunction(() => window.__critter.ui === 'result', null, { timeout: 15000 });
+await wait(600);
+await shot('14-level-failed');
+
+// Daily challenge.
+await page.evaluate(() => window.__critter.goHome());
+await wait(400);
+await shot('15-title-modes');
+await page.click('#dailyBtn');
+await wait(500);
+await shot('16-daily-intro');
+await page.click('#introStart');
+await wait(800);
+await shot('17-daily-play');
 
 console.log('final', await state());
 await browser.close();

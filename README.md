@@ -125,17 +125,31 @@ Shrimp → Clownfish → Crab → Starfish → Pufferfish → Jellyfish → Sea 
 
 Two Blue Whales make a **Whale Party**.
 
+Three ways to play:
+
+- **🗺️ Adventure:** 32 levels across 4 worlds (Sandy Shallows, Coral Reef, Kelp Forest, Deep Blue). Each level has a goal and a drop limit, and earns 1–3 stars depending on how few drops it took. Finishing a level unlocks the next. There are three kinds of goal:
+  - **Make…** ("Make 2 Crabs", "Make an Octopus").
+  - **Score…** ("Score 450 points").
+  - **Bubble puzzles:** critters trapped in bubbles sit fixed in the tank. Drop a matching critter onto each one to pop it free; pop them all to win. Some bubbles are stacked into towers that chain-pop.
+
+  The finale starts with a lonely narwhal that needs a friend to become a Blue Whale.
+- **📅 Daily Challenge:** a new challenge every day, the same for everyone. It rotates between a bubble puzzle, a "make" goal and a 30-drop score dive. Finishing earns a 🐚 seashell and builds a 🔥 day streak.
+- **♾️ Free Play:** the original endless mode.
+
+Other features:
+
 - **Forgiving rules:** the first time the tank overflows, a **Bubble Rescue** floats the top critters away so the game goes on. There are also **3 Shakes** per game to jiggle stuck critters.
 - **Sea Album:** each new critter she discovers pops up with a real fun fact, such as "An octopus has three hearts and blue blood!". The album keeps track of everything found.
 - **Kid-friendly design:** big buttons, short words, a gentle generated soundtrack (music and sound can be switched off separately), and no ads, accounts or internet needed after the first load.
 - Everything is drawn in code, including all 10 critters. The only asset is the bundled [Baloo 2](critter-merge/web/fonts/OFL.txt) font (SIL Open Font License).
 
-Code: [`critter-merge/web/js/core.js`](critter-merge/web/js/core.js) holds the rules and physics, [`art.js`](critter-merge/web/js/art.js) the critters, [`render.js`](critter-merge/web/js/render.js) the drawing, and [`main.js`](critter-merge/web/js/main.js) the screens. The Android wrapper is in `critter-merge/app` and builds with `./gradlew :crittermerge:assembleDebug`.
+Code: [`critter-merge/web/js/core.js`](critter-merge/web/js/core.js) holds the rules and physics, [`levels.js`](critter-merge/web/js/levels.js) the Adventure levels and the Daily Challenge generator, [`art.js`](critter-merge/web/js/art.js) the critters, [`render.js`](critter-merge/web/js/render.js) the drawing, and [`main.js`](critter-merge/web/js/main.js) the screens. The Android wrapper is in `critter-merge/app` and builds with `./gradlew :crittermerge:assembleDebug`.
 
 Checks:
 
 - `node --test tools/critter.test.mjs`: merging, chain reactions, Whale Party, rescue and game over, shakes, physics stability.
 - `node tools/critter-sim.mjs`: plays many games with bots to check the physics never misbehaves.
+- `node tools/critter-levels.mjs`: plays every level and a month of daily challenges with bots. A look-ahead solver must clear every bubble puzzle, and the "make" and "score" drop limits are set with plenty of room over what the bot needs. Re-run it after editing levels.
 - `node tools/critter-screens.mjs out 1 820 1180`: headless smoke test with screenshots at iPad size.
 - `node tools/critter-icons.mjs`: regenerates the icons from the critter art.
 
