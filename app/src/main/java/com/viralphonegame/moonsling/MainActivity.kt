@@ -1,0 +1,219 @@
+package com.viralphonegame.moonsling
+
+import android.annotation.SuppressLint
+import android.content.ActivityNotFoundException
+import android.content.ClipData
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.os.Bundle
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
+import android.util.Base64
+import android.util.Log
+import android.view.WindowManager
+import android.webkit.JavascriptInterface
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
+import androidx.core.content.FileProvider
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
+import androidx.webkit.WebViewAssetLoader
+import java.io.File
+
+/**
+ * Hosts the HTML5 game (bundled from /web as app assets) in a full-screen WebView
+ * and exposes a tiny native bridge for haptics and sharing.
+ */
+class MainActivity : ComponentActivity() {
+
+    private lateinit var webView: WebView
+    private var insetsJs = "window.setSafeInsets && window.setSafeInsets(0,0,0,0)"
+
+    private val vibrator: Vibrator? by lazy {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            (getSystemService(VIBRATOR_MANAGER_SERVICE) as? VibratorManager)?.defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            getSystemService(VIBRATOR_SERVICE) as? Vibrator
+        }
+    }
+
+    @SuppressLint("SetJavaScriptEnabled")
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            window.attributes = window.attributes.apply {
+                layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            }
+        }
+
+        // Serve assets from a virtual https origin so localStorage & WebAudio behave like on the web.
+        val assetLoader = WebViewAssetLoader.Builder()
+            .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
+            .build()
+
+        webView = WebView(this).apply {
+            setBackgroundColor(SPACE_COLOR)
+            overScrollMode = WebView.OVER_SCROLL_NEVER
+            isVerticalScrollBarEnabled = false
+            isHorizontalScrollBarEnabled = false
+            isHapticFeedbackEnabled = false
+            with(settings) {
+                javaScriptEnabled = true
+                domStorageEnabled = true
+                mediaPlaybackRequiresUserGesture = false
+                allowFileAccess = false
+                allowContentAccess = false
+                setSupportZoom(false)
+                builtInZoomControls = false
+                displayZoomControls = false
+            }
+            webViewClient = object : WebViewClient() {
+                override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
+                    assetLoader.shouldInterceptRequest(request.url)
+
+                override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+                    if (request.url.host == WebViewAssetLoader.DEFAULT_DOMAIN) return false
+                    openExternal(request.url)
+                    return true
+                }
+
+                override fun onPageFinished(view: WebView, url: String) {
+                    view.evaluateJavascript(insetsJs, null)
+                }
+            }
+            addJavascriptInterface(Bridge(), "MoonslingAndroid")
+        }
+        setContentView(webView)
+
+        // Pass display-cutout / system-bar insets to CSS so the HUD avoids notches.
+        ViewCompat.setOnApplyWindowInsetsListener(webView) { _, insets ->
+            val i = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
+            val d = resources.displayMetrics.density
+            insetsJs = "window.setSafeInsets && window.setSafeInsets(${i.top / d},${i.bottom / d},${i.left / d},${i.right / d})"
+            webView.evaluateJavascript(insetsJs, null)
+            WindowInsetsCompat.CONSUMED
+        }
+        hideSystemBars()
+
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                webView.evaluateJavascript("window.moonslingBack ? window.moonslingBack() : 'exit'") { result ->
+                    if (result == null || result.contains("exit")) finish()
+                }
+            }
+        })
+
+        webView.loadUrl("https://${WebViewAssetLoader.DEFAULT_DOMAIN}/assets/index.html")
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) hideSystemBars()
+    }
+
+    override fun onPause() {
+        webView.evaluateJavascript("window.moonslingPause && window.moonslingPause()", null)
+        webView.onPause()
+        super.onPause()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        webView.onResume()
+        webView.evaluateJavascript("window.moonslingResume && window.moonslingResume()", null)
+    }
+
+    override fun onDestroy() {
+        webView.destroy()
+        super.onDestroy()
+    }
+
+    private fun hideSystemBars() {
+        WindowInsetsControllerCompat(window, window.decorView).apply {
+            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            hide(WindowInsetsCompat.Type.systemBars())
+        }
+    }
+
+    private fun openExternal(uri: Uri) {
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, uri))
+        } catch (e: ActivityNotFoundException) {
+            Log.w(TAG, "No app to open $uri", e)
+        }
+    }
+
+    private fun shareText(text: String) {
+        val send = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, text)
+        }
+        startActivity(Intent.createChooser(send, getString(R.string.share_title)))
+    }
+
+    private fun shareImage(png: ByteArray, text: String) {
+        val dir = File(cacheDir, "share").apply { mkdirs() }
+        val file = File(dir, "moonsling-score.png").apply { writeBytes(png) }
+        val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
+        val send = Intent(Intent.ACTION_SEND).apply {
+            type = "image/png"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            putExtra(Intent.EXTRA_TEXT, text)
+            clipData = ClipData.newRawUri(null, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        startActivity(Intent.createChooser(send, getString(R.string.share_title)))
+    }
+
+    /** Methods callable from JavaScript as `window.MoonslingAndroid.*` (run on a binder thread). */
+    private inner class Bridge {
+        @JavascriptInterface
+        fun vibrate(ms: Int, amplitude: Int) {
+            val v = vibrator ?: return
+            if (!v.hasVibrator()) return
+            val amp = if (v.hasAmplitudeControl()) amplitude.coerceIn(1, 255) else VibrationEffect.DEFAULT_AMPLITUDE
+            v.vibrate(VibrationEffect.createOneShot(ms.coerceIn(1, 500).toLong(), amp))
+        }
+
+        @JavascriptInterface
+        fun share(text: String) {
+            runOnUiThread { shareText(text) }
+        }
+
+        @JavascriptInterface
+        fun shareImage(base64Png: String, text: String) {
+            val bytes = try {
+                Base64.decode(base64Png, Base64.DEFAULT)
+            } catch (e: IllegalArgumentException) {
+                null
+            }
+            runOnUiThread {
+                try {
+                    if (bytes != null) shareImage(bytes, text) else shareText(text)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Image share failed, falling back to text", e)
+                    shareText(text)
+                }
+            }
+        }
+
+        @JavascriptInterface
+        fun getShareUrl(): String = "https://play.google.com/store/apps/details?id=$packageName"
+    }
+
+    private companion object {
+        const val TAG = "Moonsling"
+        const val SPACE_COLOR = 0xFF12062B.toInt()
+    }
+}
